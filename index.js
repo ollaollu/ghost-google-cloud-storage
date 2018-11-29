@@ -43,7 +43,7 @@ class GStore extends BaseStore {
                 };
                 return this.bucket.upload(image.path, opts);
             }).then(function (data) {
-                return resolve(googleStoragePath + targetFilename);
+                return resolve(targetFilename);
             }).catch(function (e) {
                 return reject(e);
             });
@@ -74,7 +74,7 @@ class GStore extends BaseStore {
           contents += data;
         });
         rs.on('end', function(){
-          return resolve(content);
+          return resolve(contents);
         });
       });
     }
