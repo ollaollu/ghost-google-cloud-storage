@@ -2,6 +2,7 @@
 
 var storage     = require('@google-cloud/storage'),
     BaseStore   = require('ghost-storage-base'),
+    path        = require('path'),
     Promise     = require('bluebird'),
     options     = {};
 
@@ -31,22 +32,20 @@ class GStore extends BaseStore {
         googleStoragePath = `http${this.insecure?'':'s'}://${this.assetDomain}/`,
         targetFilename;
 
-        return new Promise((resolve, reject) => {
-            this.getUniqueFileName(image, targetDir).then(tf => {
-                targetFilename = tf;
-                var opts = {
-                    destination: targetFilename,
-                    metadata: {
-                        cacheControl: `public, max-age=${this.maxAge}`
-                    },
-                    public: true
-                };
-                return this.bucket.upload(image.path, opts);
-            }).then(function (data) {
-                return resolve(googleStoragePath + targetFilename);
-            }).catch(function (e) {
-                return reject(e);
-            });
+        return this.getUniqueFileName(image, targetDir).then(newFile => {
+            targetFilename = newFile;
+            var opts = {
+                destination: newFile,
+                metadata: {
+                    cacheControl: `public, max-age=${this.maxAge}`
+                },
+                public: true
+            };
+            return this.bucket.upload(image.path, opts);
+        }).then(function (data) {
+            return googleStoragePath + targetFilename;
+        }).catch(function (e) {
+            return Promise.reject(e);
         });
     }
 
@@ -56,26 +55,28 @@ class GStore extends BaseStore {
         return function (req, res, next) { next(); };
     }
 
-    exists (filename) {
-        return new Promise((resolve, reject) => {
-            this.bucket.file(filename).exists().then(function(data){
-                return resolve(data[0]);
-            });
-        });
+    exists (filename, targetDir) {
+        return this.bucket
+            .file(path.join(targetDir, filename))
+            .exists()
+            .then(function(data){
+                return data[0];
+            })
+            .catch(err => Promise.reject(err));
     }
 
     read (filename) {
-      var rs = this.bucket.file(filename).createReadStream(), contents = '';
-      return new Promise(function (resolve, reject) {
-        rs.on('error', function(err){
-          return reject(err);
-        });
-        rs.on('data', function(data){
-          contents += data;
-        });
-        rs.on('end', function(){
-          return resolve(contents);
-        });
+        var rs = this.bucket.file(filename).createReadStream(), contents = '';
+        return new Promise(function (resolve, reject) {
+            rs.on('error', function(err){
+                return reject(err);
+            });
+            rs.on('data', function(data){
+                contents += data;
+            });
+            rs.on('end', function(){
+                return resolve(contents);
+            });
       });
     }
 
